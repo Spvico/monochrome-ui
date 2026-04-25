@@ -1,5 +1,6 @@
 --[[
-    Monochrome UI Library v1.0
+    Monochrome UI Library v2.0
+    NEW FEATURE: Selection (Option Picker with Execute Button)
     Features: Monochrome theme, draggable, minimizable, closable, respawn-proof
     Compatible with most executors (Krnl, Synapse X, Script-Ware, Fluxus, etc.)
     Supports Mobile & Desktop
@@ -28,6 +29,7 @@ local Settings = {
     ToggleOff = Color3.fromRGB(25, 25, 25),
     SliderFill = Color3.fromRGB(80, 80, 80),
     NotificationColor = Color3.fromRGB(40, 40, 40),
+    ExecuteColor = Color3.fromRGB(60, 60, 60),
 }
 
 -- Utility Functions
@@ -45,41 +47,18 @@ local function CreateTween(instance, properties, duration, easingStyle, easingDi
     return tween
 end
 
-local function IsMobile()
-    return UserInputService.TouchEnabled
-end
-
 -- Main Library Constructor
 function MonochromeUI.new(title)
     local self = setmetatable({}, MonochromeUI)
     
-    -- Detect executor support for various protections
-    local synced = syn and syn.protect_gui or function(obj) return obj end
-    local krnled = getexecutorname and getexecutorname():lower():find("krnl") and getgc or nil
-    
     -- Main GUI
     self.MainGui = CreateInstance("ScreenGui", {
         Name = "MonochromeUI_" .. math.random(1000, 9999),
-        Parent = (synced and gethui) and gethui() or CoreGui,
-        ResetOnSpawn = false, -- Respawn proof
+        Parent = (syn and syn.protect_gui and gethui) and gethui() or CoreGui,
+        ResetOnSpawn = false,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         IgnoreGuiInset = true,
     })
-    
-    -- Protect GUI for executors that support it
-    if synced then
-        synced(self.MainGui)
-    elseif krnled then
-        for i, v in next, krnled() do
-            if typeof(v) == "function" and islclosure(v) and not isexecutorclosure(v) then
-                local constants = getconstants(v)
-                if table.find(constants, "RobloxGui") then
-                    self.MainGui.Parent = v()
-                    break
-                end
-            end
-        end
-    end
     
     -- Main Frame
     self.MainFrame = CreateInstance("Frame", {
@@ -95,25 +74,9 @@ function MonochromeUI.new(title)
         ClipsDescendants = false,
     })
     
-    -- Rounded corners effect
     local Corner = CreateInstance("UICorner", {
         CornerRadius = UDim.new(0, 8),
         Parent = self.MainFrame,
-    })
-    
-    -- Shadow effect
-    local Shadow = CreateInstance("ImageLabel", {
-        Name = "Shadow",
-        Parent = self.MainFrame,
-        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-        BackgroundTransparency = 0.7,
-        Image = "rbxassetid://297034942",
-        ImageColor3 = Color3.fromRGB(0, 0, 0),
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(10, 10, 118, 118),
-        Size = UDim2.new(1, 20, 1, 20),
-        Position = UDim2.new(0, -10, 0, -10),
-        ZIndex = 0,
     })
     
     -- Top Bar
@@ -131,7 +94,6 @@ function MonochromeUI.new(title)
         Parent = self.TopBar,
     })
     
-    -- Fix bottom corners
     local BottomCornerFix = CreateInstance("Frame", {
         Name = "BottomCornerFix",
         Parent = self.TopBar,
@@ -197,6 +159,58 @@ function MonochromeUI.new(title)
         Parent = self.CloseButton,
     })
     
+    -- Dragging System
+    local dragging, dragInput, dragStart, startPos
+    
+    self.TopBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = self.MainFrame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    
+    self.TopBar.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            TweenService:Create(self.MainFrame, TweenInfo.new(0.1), {
+                Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            }):Play()
+        end
+    end)
+    
+    -- Minimize Functionality
+    self.Minimized = false
+    self.OriginalSize = self.MainFrame.Size
+    
+    self.MinimizeButton.MouseButton1Click:Connect(function()
+        self.Minimized = not self.Minimized
+        if self.Minimized then
+            self.ContentFrame.Visible = false
+            self.TabContainer.Visible = false
+            self.TabPageContainer.Visible = false
+            CreateTween(self.MainFrame, {Size = UDim2.new(0, 600, 0, 35)}, 0.3):Play()
+            self.MinimizeButton.Text = "□"
+        else
+            self.ContentFrame.Visible = true
+            self.TabContainer.Visible = true
+            self.TabPageContainer.Visible = true
+            CreateTween(self.MainFrame, {Size = self.OriginalSize}, 0.3):Play()
+            self.MinimizeButton.Text = "─"
+        end
+    end)
+    
+    -- Close Functionality
+    self.CloseButton.MouseButton1Click:Connect(function()
+        self:Hide()
+    end)
+    
     -- Content Container
     self.ContentFrame = CreateInstance("ScrollingFrame", {
         Name = "Content",
@@ -219,65 +233,12 @@ function MonochromeUI.new(title)
         PaddingRight = UDim.new(0, 10),
     })
     
-    -- UI List Layout
     self.Layout = CreateInstance("UIListLayout", {
         Parent = self.ContentFrame,
         SortOrder = Enum.SortOrder.LayoutOrder,
         Padding = UDim.new(0, 8),
         HorizontalAlignment = Enum.HorizontalAlignment.Center,
     })
-    
-    -- Variables
-    self.Minimized = false
-    self.OriginalSize = self.MainFrame.Size
-    self.Tabs = {}
-    self.CurrentTab = nil
-    self.Elements = {}
-    self.Dragging = false
-    self.DragInput = nil
-    self.DragStart = nil
-    self.StartPos = nil
-    self.Notifications = {}
-    
-    -- Dragging System (works on mobile & desktop)
-    local function UpdateDrag(input)
-        local delta = input.Position - self.DragStart
-        local newPos = UDim2.new(self.StartPos.X.Scale, self.StartPos.X.Offset + delta.X, 
-                                self.StartPos.Y.Scale, self.StartPos.Y.Offset + delta.Y)
-        
-        TweenService:Create(self.MainFrame, TweenInfo.new(0.1), {Position = newPos}):Play()
-    end
-    
-    self.TopBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            self.Dragging = true
-            self.DragStart = input.Position
-            self.StartPos = self.MainFrame.Position
-            
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    self.Dragging = false
-                end
-            end)
-        end
-    end)
-    
-    self.TopBar.InputChanged:Connect(function(input)
-        if self.Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
-                             input.UserInputType == Enum.UserInputType.Touch) then
-            UpdateDrag(input)
-        end
-    end)
-    
-    -- Minimize Functionality
-    self.MinimizeButton.MouseButton1Click:Connect(function()
-        self:ToggleMinimize()
-    end)
-    
-    -- Close Functionality
-    self.CloseButton.MouseButton1Click:Connect(function()
-        self:Hide()
-    end)
     
     -- Tab System
     self.TabContainer = CreateInstance("Frame", {
@@ -306,15 +267,11 @@ function MonochromeUI.new(title)
         ZIndex = 1,
     })
     
-    -- Respawn Protection
-    if LocalPlayer then
-        LocalPlayer.CharacterAdded:Connect(function()
-            if self.MainGui and self.MainGui.Parent then
-                -- GUI persists through respawn
-                self.MainGui.ResetOnSpawn = false
-            end
-        end)
-    end
+    -- Variables
+    self.Tabs = {}
+    self.CurrentTab = nil
+    self.Elements = {}
+    self.Notifications = {}
     
     -- Auto-update canvas size
     self.Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -324,11 +281,12 @@ function MonochromeUI.new(title)
     return self
 end
 
--- Tab Creation
+-- ====================================
+-- TAB CREATION
+-- ====================================
 function MonochromeUI:CreateTab(name)
     local tab = {}
     
-    -- Tab Button
     tab.Button = CreateInstance("TextButton", {
         Name = name .. "Tab",
         Parent = self.TabContainer,
@@ -349,7 +307,6 @@ function MonochromeUI:CreateTab(name)
         Parent = tab.Button,
     })
     
-    -- Tab Page
     tab.Page = CreateInstance("ScrollingFrame", {
         Name = name .. "Page",
         Parent = self.TabPageContainer,
@@ -382,7 +339,6 @@ function MonochromeUI:CreateTab(name)
         tab.Page.CanvasSize = UDim2.new(0, 0, 0, tab.Layout.AbsoluteContentSize.Y + 10)
     end)
     
-    -- Tab Selection Logic
     tab.Button.MouseButton1Click:Connect(function()
         self:SelectTab(tab)
     end)
@@ -396,7 +352,9 @@ function MonochromeUI:CreateTab(name)
     return tab
 end
 
--- Select Tab
+-- ====================================
+-- SELECT TAB
+-- ====================================
 function MonochromeUI:SelectTab(tab)
     for _, t in pairs(self.Tabs) do
         t.Page.Visible = false
@@ -410,7 +368,44 @@ function MonochromeUI:SelectTab(tab)
     self.CurrentTab = tab
 end
 
--- Create Button Element
+-- ====================================
+-- CREATE LABEL
+-- ====================================
+function MonochromeUI:CreateLabel(tab, text)
+    local element = {}
+    element.Type = "Label"
+    
+    element.Frame = CreateInstance("Frame", {
+        Parent = tab.Page,
+        BackgroundColor3 = Settings.SecondaryColor,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, -10, 0, 35),
+    })
+    
+    local Corner = CreateInstance("UICorner", {
+        CornerRadius = UDim.new(0, 4),
+        Parent = element.Frame,
+    })
+    
+    element.TextLabel = CreateInstance("TextLabel", {
+        Parent = element.Frame,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, -10, 1, 0),
+        Position = UDim2.new(0, 5, 0, 0),
+        Font = Enum.Font.Gotham,
+        Text = text,
+        TextColor3 = Settings.DimTextColor,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    })
+    
+    table.insert(self.Elements, element)
+    return element
+end
+
+-- ====================================
+-- CREATE BUTTON
+-- ====================================
 function MonochromeUI:CreateButton(tab, name, callback)
     local element = {}
     element.Type = "Button"
@@ -432,7 +427,6 @@ function MonochromeUI:CreateButton(tab, name, callback)
         Parent = element.Frame,
     })
     
-    -- Hover effects
     element.Frame.MouseEnter:Connect(function()
         CreateTween(element.Frame, {BackgroundColor3 = Settings.AccentColor}, 0.2):Play()
     end)
@@ -441,7 +435,6 @@ function MonochromeUI:CreateButton(tab, name, callback)
         CreateTween(element.Frame, {BackgroundColor3 = Settings.SecondaryColor}, 0.2):Play()
     end)
     
-    -- Click handler
     element.Frame.MouseButton1Click:Connect(function()
         CreateTween(element.Frame, {BackgroundColor3 = Color3.fromRGB(60, 60, 60)}, 0.1):Play()
         if callback then
@@ -455,13 +448,14 @@ function MonochromeUI:CreateButton(tab, name, callback)
     return element
 end
 
--- Create Toggle Element
+-- ====================================
+-- CREATE TOGGLE
+-- ====================================
 function MonochromeUI:CreateToggle(tab, name, default, callback)
     local element = {}
     element.Type = "Toggle"
     element.Value = default or false
     
-    -- Container
     element.Frame = CreateInstance("Frame", {
         Parent = tab.Page,
         BackgroundColor3 = Settings.SecondaryColor,
@@ -474,7 +468,6 @@ function MonochromeUI:CreateToggle(tab, name, default, callback)
         Parent = element.Frame,
     })
     
-    -- Label
     element.Label = CreateInstance("TextLabel", {
         Parent = element.Frame,
         BackgroundTransparency = 1,
@@ -487,7 +480,6 @@ function MonochromeUI:CreateToggle(tab, name, default, callback)
         TextXAlignment = Enum.TextXAlignment.Left,
     })
     
-    -- Toggle Button
     element.ToggleFrame = CreateInstance("Frame", {
         Parent = element.Frame,
         BackgroundColor3 = default and Settings.ToggleOn or Settings.ToggleOff,
@@ -514,7 +506,6 @@ function MonochromeUI:CreateToggle(tab, name, default, callback)
         Parent = element.ToggleDot,
     })
     
-    -- Toggle Function
     local function UpdateToggle()
         element.Value = not element.Value
         if element.Value then
@@ -553,7 +544,9 @@ function MonochromeUI:CreateToggle(tab, name, default, callback)
     return element
 end
 
--- Create Slider Element
+-- ====================================
+-- CREATE SLIDER
+-- ====================================
 function MonochromeUI:CreateSlider(tab, name, min, max, default, callback)
     local element = {}
     element.Type = "Slider"
@@ -561,7 +554,6 @@ function MonochromeUI:CreateSlider(tab, name, min, max, default, callback)
     element.Min = min
     element.Max = max
     
-    -- Container
     element.Frame = CreateInstance("Frame", {
         Parent = tab.Page,
         BackgroundColor3 = Settings.SecondaryColor,
@@ -574,7 +566,6 @@ function MonochromeUI:CreateSlider(tab, name, min, max, default, callback)
         Parent = element.Frame,
     })
     
-    -- Label
     element.Label = CreateInstance("TextLabel", {
         Parent = element.Frame,
         BackgroundTransparency = 1,
@@ -587,7 +578,6 @@ function MonochromeUI:CreateSlider(tab, name, min, max, default, callback)
         TextXAlignment = Enum.TextXAlignment.Left,
     })
     
-    -- Slider Background
     element.SliderBg = CreateInstance("Frame", {
         Parent = element.Frame,
         BackgroundColor3 = Settings.PrimaryColor,
@@ -601,7 +591,6 @@ function MonochromeUI:CreateSlider(tab, name, min, max, default, callback)
         Parent = element.SliderBg,
     })
     
-    -- Slider Fill
     local fillWidth = (element.Value - min) / (max - min)
     element.SliderFill = CreateInstance("Frame", {
         Parent = element.SliderBg,
@@ -615,7 +604,6 @@ function MonochromeUI:CreateSlider(tab, name, min, max, default, callback)
         Parent = element.SliderFill,
     })
     
-    -- Slider Dot
     element.SliderDot = CreateInstance("Frame", {
         Parent = element.SliderFill,
         BackgroundColor3 = Settings.TextColor,
@@ -630,7 +618,6 @@ function MonochromeUI:CreateSlider(tab, name, min, max, default, callback)
         Parent = element.SliderDot,
     })
     
-    -- Slider Interaction
     local function UpdateSlider(input)
         local mousePos = input.Position.X
         local sliderPos = element.SliderBg.AbsolutePosition.X
@@ -673,40 +660,9 @@ function MonochromeUI:CreateSlider(tab, name, min, max, default, callback)
     return element
 end
 
--- Create Label Element
-function MonochromeUI:CreateLabel(tab, text)
-    local element = {}
-    element.Type = "Label"
-    
-    element.Frame = CreateInstance("Frame", {
-        Parent = tab.Page,
-        BackgroundColor3 = Settings.SecondaryColor,
-        BorderSizePixel = 0,
-        Size = UDim2.new(1, -10, 0, 35),
-    })
-    
-    local Corner = CreateInstance("UICorner", {
-        CornerRadius = UDim.new(0, 4),
-        Parent = element.Frame,
-    })
-    
-    element.TextLabel = CreateInstance("TextLabel", {
-        Parent = element.Frame,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, -10, 1, 0),
-        Position = UDim2.new(0, 5, 0, 0),
-        Font = Enum.Font.Gotham,
-        Text = text,
-        TextColor3 = Settings.DimTextColor,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    })
-    
-    table.insert(self.Elements, element)
-    return element
-end
-
--- Create Dropdown Element
+-- ====================================
+-- CREATE DROPDOWN
+-- ====================================
 function MonochromeUI:CreateDropdown(tab, name, options, callback)
     local element = {}
     element.Type = "Dropdown"
@@ -715,12 +671,12 @@ function MonochromeUI:CreateDropdown(tab, name, options, callback)
     element.Expanded = false
     element.Buttons = {}
     
-    -- Main Button
     element.Frame = CreateInstance("Frame", {
         Parent = tab.Page,
         BackgroundColor3 = Settings.SecondaryColor,
         BorderSizePixel = 0,
         Size = UDim2.new(1, -10, 0, 35),
+        ClipsDescendants = false,
     })
     
     local Corner = CreateInstance("UICorner", {
@@ -744,16 +700,18 @@ function MonochromeUI:CreateDropdown(tab, name, options, callback)
         PaddingLeft = UDim.new(0, 10),
     })
     
-    -- Options Container (hidden by default)
-    element.OptionsFrame = CreateInstance("Frame", {
+    element.OptionsFrame = CreateInstance("ScrollingFrame", {
         Parent = element.Frame,
         BackgroundColor3 = Settings.PrimaryColor,
         BorderSizePixel = 0,
         Position = UDim2.new(0, 0, 1, 2),
         Size = UDim2.new(1, 0, 0, 0),
-        ClipsDescendants = true,
-        ZIndex = 5,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = Settings.DimTextColor,
+        ZIndex = 10,
         Visible = false,
+        ClipsDescendants = true,
     })
     
     local OptionsCorner = CreateInstance("UICorner", {
@@ -767,8 +725,16 @@ function MonochromeUI:CreateDropdown(tab, name, options, callback)
         Padding = UDim.new(0, 1),
     })
     
-    -- Create option buttons
+    OptionsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        element.OptionsFrame.CanvasSize = UDim2.new(0, 0, 0, OptionsLayout.AbsoluteContentSize.Y + 2)
+    end)
+    
     local function CreateOptionButtons()
+        for _, btn in pairs(element.Buttons) do
+            btn:Destroy()
+        end
+        element.Buttons = {}
+        
         for _, option in pairs(options) do
             local optionButton = CreateInstance("TextButton", {
                 Parent = element.OptionsFrame,
@@ -780,7 +746,7 @@ function MonochromeUI:CreateDropdown(tab, name, options, callback)
                 TextColor3 = Settings.DimTextColor,
                 TextSize = 12,
                 TextXAlignment = Enum.TextXAlignment.Left,
-                ZIndex = 6,
+                ZIndex = 11,
             })
             
             optionButton.MouseButton1Click:Connect(function()
@@ -796,7 +762,6 @@ function MonochromeUI:CreateDropdown(tab, name, options, callback)
         end
     end
     
-    -- Toggle Dropdown
     function element:Toggle(state)
         if state == nil then
             state = not element.Expanded
@@ -805,8 +770,8 @@ function MonochromeUI:CreateDropdown(tab, name, options, callback)
         
         if state then
             element.OptionsFrame.Visible = true
-            local height = #options * 30 + #options - 1
-            element.OptionsFrame.Size = UDim2.new(1, 0, 0, height)
+            local height = math.min(#options * 30 + #options - 1, 150)
+            element.OptionsFrame.Size = UDim2.new(1, 0, 0, 0)
             CreateTween(element.OptionsFrame, {Size = UDim2.new(1, 0, 0, height)}, 0.2):Play()
         else
             CreateTween(element.OptionsFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2):Play()
@@ -819,13 +784,243 @@ function MonochromeUI:CreateDropdown(tab, name, options, callback)
         element:Toggle()
     end)
     
+    element.SetOptions = function(newOptions)
+        options = newOptions
+        element.Options = newOptions
+        if not table.find(newOptions, element.Value) then
+            element.Value = newOptions[1] or ""
+            element.Button.Text = name .. ": " .. element.Value
+        end
+        CreateOptionButtons()
+    end
+    
     CreateOptionButtons()
     
     table.insert(self.Elements, element)
     return element
 end
 
--- Create Notification
+-- ====================================
+-- CREATE SELECTION (NEW FEATURE!)
+-- Option Picker with Execute Button
+-- ====================================
+function MonochromeUI:CreateSelection(tab, name, options, executeCallback)
+    local element = {}
+    element.Type = "Selection"
+    element.Value = options[1] or ""
+    element.Options = options
+    element.Expanded = false
+    
+    -- Main Container
+    element.Frame = CreateInstance("Frame", {
+        Parent = tab.Page,
+        BackgroundColor3 = Settings.SecondaryColor,
+        BorderColor3 = Settings.BorderColor,
+        BorderSizePixel = 1,
+        Size = UDim2.new(1, -10, 0, 70),
+        ClipsDescendants = false,
+        ZIndex = 1,
+    })
+    
+    local Corner = CreateInstance("UICorner", {
+        CornerRadius = UDim.new(0, 6),
+        Parent = element.Frame,
+    })
+    
+    -- Title Label
+    element.Label = CreateInstance("TextLabel", {
+        Parent = element.Frame,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 12, 0, 8),
+        Size = UDim2.new(1, -24, 0, 16),
+        Font = Enum.Font.GothamSemibold,
+        Text = name,
+        TextColor3 = Settings.TextColor,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 2,
+    })
+    
+    -- Option Picker Dropdown (Left side)
+    element.PickerButton = CreateInstance("TextButton", {
+        Parent = element.Frame,
+        BackgroundColor3 = Settings.PrimaryColor,
+        BorderColor3 = Settings.BorderColor,
+        BorderSizePixel = 1,
+        Position = UDim2.new(0, 12, 0, 30),
+        Size = UDim2.new(0.55, -6, 0, 28),
+        Font = Enum.Font.Gotham,
+        Text = "  " .. element.Value .. "  ▼",
+        TextColor3 = Settings.TextColor,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 2,
+        AutoButtonColor = false,
+    })
+    
+    local PickerCorner = CreateInstance("UICorner", {
+        CornerRadius = UDim.new(0, 4),
+        Parent = element.PickerButton,
+    })
+    
+    -- Dropdown options frame
+    element.OptionsFrame = CreateInstance("ScrollingFrame", {
+        Parent = element.Frame,
+        BackgroundColor3 = Settings.PrimaryColor,
+        BorderColor3 = Settings.BorderColor,
+        BorderSizePixel = 1,
+        Position = UDim2.new(0, 12, 1, 35),
+        Size = UDim2.new(0.55, -6, 0, 0),
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = Settings.DimTextColor,
+        ZIndex = 10,
+        Visible = false,
+        ClipsDescendants = true,
+    })
+    
+    local OptionsCorner = CreateInstance("UICorner", {
+        CornerRadius = UDim.new(0, 4),
+        Parent = element.OptionsFrame,
+    })
+    
+    local OptionsLayout = CreateInstance("UIListLayout", {
+        Parent = element.OptionsFrame,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 1),
+    })
+    
+    OptionsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        element.OptionsFrame.CanvasSize = UDim2.new(0, 0, 0, OptionsLayout.AbsoluteContentSize.Y + 2)
+    end)
+    
+    -- Execute Button (Right side)
+    element.ExecuteButton = CreateInstance("TextButton", {
+        Parent = element.Frame,
+        BackgroundColor3 = Settings.ExecuteColor,
+        BorderColor3 = Settings.BorderColor,
+        BorderSizePixel = 1,
+        Position = UDim2.new(0.55, 6, 0, 30),
+        Size = UDim2.new(0.45, -18, 0, 28),
+        Font = Enum.Font.GothamBold,
+        Text = "EXECUTE",
+        TextColor3 = Settings.TextColor,
+        TextSize = 12,
+        ZIndex = 2,
+        AutoButtonColor = false,
+    })
+    
+    local ExecuteCorner = CreateInstance("UICorner", {
+        CornerRadius = UDim.new(0, 4),
+        Parent = element.ExecuteButton,
+    })
+    
+    -- Create option buttons in dropdown
+    local function CreateOptionButtons()
+        -- Clear existing buttons
+        for _, child in pairs(element.OptionsFrame:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
+            end
+        end
+        
+        for _, option in pairs(options) do
+            local optionButton = CreateInstance("TextButton", {
+                Parent = element.OptionsFrame,
+                BackgroundColor3 = Settings.SecondaryColor,
+                BorderSizePixel = 0,
+                Size = UDim2.new(1, 0, 0, 28),
+                Font = Enum.Font.Gotham,
+                Text = "  " .. option,
+                TextColor3 = Settings.DimTextColor,
+                TextSize = 12,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex = 11,
+                AutoButtonColor = false,
+            })
+            
+            optionButton.MouseEnter:Connect(function()
+                CreateTween(optionButton, {BackgroundColor3 = Settings.AccentColor}, 0.2):Play()
+            end)
+            
+            optionButton.MouseLeave:Connect(function()
+                CreateTween(optionButton, {BackgroundColor3 = Settings.SecondaryColor}, 0.2):Play()
+            end)
+            
+            optionButton.MouseButton1Click:Connect(function()
+                element.Value = option
+                element.PickerButton.Text = "  " .. option .. "  ▼"
+                element:ToggleDropdown(false)
+            end)
+            
+            table.insert(element.Buttons, optionButton)
+        end
+    end
+    
+    element.Buttons = {}
+    
+    -- Toggle dropdown
+    function element:ToggleDropdown(state)
+        if state == nil then
+            state = not element.Expanded
+        end
+        element.Expanded = state
+        
+        if state then
+            element.OptionsFrame.Visible = true
+            local height = math.min(#options * 28 + #options - 1, 150)
+            element.OptionsFrame.Size = UDim2.new(0.55, -6, 0, 0)
+            CreateTween(element.OptionsFrame, {Size = UDim2.new(0.55, -6, 0, height)}, 0.2):Play()
+        else
+            CreateTween(element.OptionsFrame, {Size = UDim2.new(0.55, -6, 0, 0)}, 0.2):Play()
+            wait(0.2)
+            element.OptionsFrame.Visible = false
+        end
+    end
+    
+    -- Picker button click
+    element.PickerButton.MouseButton1Click:Connect(function()
+        element:ToggleDropdown()
+    end)
+    
+    -- Execute button click
+    element.ExecuteButton.MouseEnter:Connect(function()
+        CreateTween(element.ExecuteButton, {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}, 0.2):Play()
+    end)
+    
+    element.ExecuteButton.MouseLeave:Connect(function()
+        CreateTween(element.ExecuteButton, {BackgroundColor3 = Settings.ExecuteColor}, 0.2):Play()
+    end)
+    
+    element.ExecuteButton.MouseButton1Click:Connect(function()
+        CreateTween(element.ExecuteButton, {BackgroundColor3 = Color3.fromRGB(100, 100, 100)}, 0.1):Play()
+        if executeCallback then
+            executeCallback(element.Value)
+        end
+        wait(0.1)
+        CreateTween(element.ExecuteButton, {BackgroundColor3 = Settings.ExecuteColor}, 0.2):Play()
+    end)
+    
+    -- Update options dynamically
+    element.SetOptions = function(newOptions)
+        options = newOptions
+        element.Options = newOptions
+        if not table.find(newOptions, element.Value) then
+            element.Value = newOptions[1] or ""
+            element.PickerButton.Text = "  " .. element.Value .. "  ▼"
+        end
+        CreateOptionButtons()
+    end
+    
+    CreateOptionButtons()
+    
+    table.insert(self.Elements, element)
+    return element
+end
+
+-- ====================================
+-- CREATE NOTIFICATION
+-- ====================================
 function MonochromeUI:CreateNotification(title, message, duration)
     local notification = {}
     duration = duration or 3
@@ -873,10 +1068,8 @@ function MonochromeUI:CreateNotification(title, message, duration)
         ZIndex = 11,
     })
     
-    -- Slide in animation
     CreateTween(notification.Frame, {Position = UDim2.new(0.95, 0, 0.7, 0)}, 0.3):Play()
     
-    -- Auto remove
     spawn(function()
         wait(duration)
         CreateTween(notification.Frame, {Position = UDim2.new(1, 10, 0.7, 0), BackgroundTransparency = 1}, 0.3):Play()
@@ -888,33 +1081,12 @@ function MonochromeUI:CreateNotification(title, message, duration)
     return notification
 end
 
--- Minimize/Maximize
-function MonochromeUI:ToggleMinimize()
-    self.Minimized = not self.Minimized
-    
-    if self.Minimized then
-        -- Minimize
-        self.OriginalSize = self.MainFrame.Size
-        CreateTween(self.MainFrame, {Size = UDim2.new(0, 600, 0, 35)}, 0.3):Play()
-        self.ContentFrame.Visible = false
-        self.TabContainer.Visible = false
-        self.TabPageContainer.Visible = false
-        self.MinimizeButton.Text = "□"
-    else
-        -- Maximize
-        CreateTween(self.MainFrame, {Size = self.OriginalSize}, 0.3):Play()
-        self.ContentFrame.Visible = true
-        self.TabContainer.Visible = true
-        self.TabPageContainer.Visible = true
-        self.MinimizeButton.Text = "─"
-    end
-end
-
--- Hide/Show UI
+-- ====================================
+-- HIDE UI
+-- ====================================
 function MonochromeUI:Hide()
     self.MainFrame.Visible = false
     
-    -- Create toggle button to show again
     if not self.ToggleButton then
         self.ToggleButton = CreateInstance("TextButton", {
             Parent = self.MainGui,
@@ -941,6 +1113,9 @@ function MonochromeUI:Hide()
     end
 end
 
+-- ====================================
+-- SHOW UI
+-- ====================================
 function MonochromeUI:Show()
     self.MainFrame.Visible = true
     if self.ToggleButton then
@@ -949,5 +1124,4 @@ function MonochromeUI:Show()
     end
 end
 
--- Return Library
 return MonochromeUI
