@@ -1,0 +1,204 @@
+--[[
+    ╔══════════════════════════════════════════╗
+    ║     MONOCHROME UI - ALL FEATURES DEMO           ║
+    ║     Everything clearly labeled and explained    ║
+    ╚══════════════════════════════════════════╝
+]]
+
+-- Load Library
+local MonochromeUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Spvico/monochrome-ui/refs/heads/main/main/ui.lua"))()
+
+-- ====================================
+-- CREATE WINDOW (The Title Bar Text)
+-- ====================================
+local Window = MonochromeUI.new("CHANGE THIS TO YOUR SCRIPT NAME")
+
+-- ====================================
+-- CREATE TABS (Left Side Navigation)
+-- ====================================
+local Tab1 = Window:CreateTab("CHANGE TAB 1 NAME")
+local Tab2 = Window:CreateTab("CHANGE TAB 2 NAME")
+local Tab3 = Window:CreateTab("CHANGE TAB 3 NAME")
+
+-- ====================================
+-- TAB 1 - SHOWING ALL ELEMENT TYPES
+-- ====================================
+
+-- LABEL: Just displays text (not clickable)
+Window:CreateLabel(Tab1, "THIS IS A LABEL - Change this text")
+
+-- LABEL: You can add as many labels as you want
+Window:CreateLabel(Tab1, "THIS IS ANOTHER LABEL")
+
+-- BUTTON: Click it to run a function
+Window:CreateButton(Tab1, "THIS IS A BUTTON - Click me!", function()
+    print("Button was clicked!")
+    Window:CreateNotification("Button", "You clicked the button!", 2)
+end)
+
+-- TOGGLE: ON/OFF switch
+Window:CreateToggle(Tab1, "THIS IS A TOGGLE - Change this", false, function(value)
+    if value then
+        print("Toggle is ON")
+    else
+        print("Toggle is OFF")
+    end
+end)
+
+-- SLIDER: Drag to change a number
+Window:CreateSlider(Tab1, "THIS IS A SLIDER", 1, 100, 50, function(value)
+    print("Slider value is now: " .. value)
+end)
+
+-- DROPDOWN: Click to pick an option
+Window:CreateDropdown(Tab1, "THIS IS A DROPDOWN", {"Option 1", "Option 2", "Option 3"}, function(selected)
+    print("You selected: " .. selected)
+    Window:CreateNotification("Dropdown", "Selected: " .. selected, 2)
+end)
+
+-- SELECTION: Pick option + Execute button (NEW FEATURE)
+Window:CreateSelection(Tab1, "THIS IS A SELECTION", {"Choice A", "Choice B", "Choice C"}, function(selected)
+    print("Executing with: " .. selected)
+    Window:CreateNotification("Selection", "Executed: " .. selected, 2)
+end)
+
+-- ====================================
+-- TAB 2 - REAL WORLD EXAMPLES
+-- ====================================
+
+-- Labels for organization
+Window:CreateLabel(Tab2, "─── Player Settings ───")
+
+-- Speed slider example
+Window:CreateSlider(Tab2, "Walk Speed", 16, 200, 16, function(speed)
+    local player = game.Players.LocalPlayer
+    if player.Character and player.Character:FindFirstChild("Humanoid") then
+        player.Character.Humanoid.WalkSpeed = speed
+    end
+end)
+
+-- Jump power slider
+Window:CreateSlider(Tab2, "Jump Power", 50, 500, 50, function(power)
+    local player = game.Players.LocalPlayer
+    if player.Character and player.Character:FindFirstChild("Humanoid") then
+        player.Character.Humanoid.JumpPower = power
+    end
+end)
+
+-- Fly toggle
+local flying = false
+Window:CreateToggle(Tab2, "Fly Mode", false, function(value)
+    flying = value
+    if flying then
+        print("Fly enabled")
+        Window:CreateNotification("Fly", "Fly mode ON", 2)
+    else
+        print("Fly disabled")
+        Window:CreateNotification("Fly", "Fly mode OFF", 2)
+    end
+end)
+
+Window:CreateLabel(Tab2, "─── Teleport Locations ───")
+
+-- Selection with teleport locations
+Window:CreateSelection(Tab2, "Teleport To", 
+    {"Spawn", "Shop", "Arena", "Trading Hub"}, 
+    function(location)
+        print("Teleporting to: " .. location)
+        Window:CreateNotification("Teleport", "Going to " .. location, 2)
+    end
+)
+
+-- Quick buttons for common actions
+Window:CreateButton(Tab2, "Teleport to Spawn (Quick)", function()
+    local player = game.Players.LocalPlayer
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(0, 10, 0)
+    end
+end)
+
+Window:CreateButton(Tab2, "Reset Character", function()
+    local player = game.Players.LocalPlayer
+    if player.Character then
+        player.Character:BreakJoints()
+    end
+end)
+
+-- ====================================
+-- TAB 3 - MORE EXAMPLES
+-- ====================================
+
+Window:CreateLabel(Tab3, "─── Game Options ───")
+
+-- Auto farm toggle
+local autoFarm = false
+Window:CreateToggle(Tab3, "Auto Farm", false, function(value)
+    autoFarm = value
+    print("Auto Farm: " .. tostring(value))
+end)
+
+-- Difficulty dropdown
+Window:CreateDropdown(Tab3, "Difficulty", {"Easy", "Normal", "Hard", "Expert"}, function(difficulty)
+    print("Difficulty set to: " .. difficulty)
+end)
+
+-- Weapon selection with execute
+Window:CreateSelection(Tab3, "Choose Weapon", 
+    {"Sword", "Axe", "Bow", "Staff", "Dagger"}, 
+    function(weapon)
+        print("Weapon selected: " .. weapon)
+        Window:CreateNotification("Weapon", "Equipped: " .. weapon, 2)
+    end
+)
+
+Window:CreateLabel(Tab3, "─── Visual Settings ───")
+
+-- ESP toggle
+Window:CreateToggle(Tab3, "Player ESP", false, function(value)
+    print("ESP: " .. tostring(value))
+end)
+
+-- ESP color dropdown
+Window:CreateDropdown(Tab3, "ESP Color", {"White", "Red", "Blue", "Green"}, function(color)
+    print("ESP color: " .. color)
+end)
+
+-- Max distance slider
+Window:CreateSlider(Tab3, "ESP Max Distance", 100, 5000, 1000, function(distance)
+    print("ESP distance: " .. distance)
+end)
+
+Window:CreateLabel(Tab3, "─── Misc ───")
+
+-- FPS Cap
+Window:CreateSlider(Tab3, "FPS Cap", 30, 240, 60, function(fps)
+    if setfpscap then
+        setfpscap(fps)
+    end
+end)
+
+-- Save/Load buttons
+Window:CreateButton(Tab3, "Save Settings", function()
+    Window:CreateNotification("Settings", "Settings saved!", 2)
+end)
+
+Window:CreateButton(Tab3, "Load Settings", function()
+    Window:CreateNotification("Settings", "Settings loaded!", 2)
+end)
+
+-- ====================================
+-- UI CONTROLS (Toggle with keyboard)
+-- ====================================
+
+Window:CreateNotification("UI Loaded", "Press RightShift to hide/show UI", 5)
+
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        if Window.MainFrame.Visible then
+            Window:Hide()
+        else
+            Window:Show()
+        end
+    end
+end)
