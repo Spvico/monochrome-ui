@@ -1,9 +1,12 @@
 --[[
-    Monochrome UI Library v2.0
-    NEW FEATURE: Selection (Option Picker with Execute Button)
-    Features: Monochrome theme, draggable, minimizable, closable, respawn-proof
-    Compatible with most executors (Krnl, Synapse X, Script-Ware, Fluxus, etc.)
-    Supports Mobile & Desktop
+    ╔══════════════════════════════════════════════════════╗
+    ║     MONOCHROME UI LIBRARY v4.0                      ║
+    ║     - Input (Text box + Execute button)             ║
+    ║     - Improved Selection (Option picker + Execute)  ║
+    ║     - Label, Button, Toggle, Slider, Dropdown      ║
+    ║     - Draggable, Minimizable, Closable             ║
+    ║     - Respawn Proof, Mobile & Desktop Support      ║
+    ╚══════════════════════════════════════════════════════╝
 ]]
 
 local MonochromeUI = {}
@@ -11,7 +14,6 @@ MonochromeUI.__index = MonochromeUI
 
 -- Services
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
@@ -30,6 +32,7 @@ local Settings = {
     SliderFill = Color3.fromRGB(80, 80, 80),
     NotificationColor = Color3.fromRGB(40, 40, 40),
     ExecuteColor = Color3.fromRGB(60, 60, 60),
+    InputBgColor = Color3.fromRGB(25, 25, 25),
 }
 
 -- Utility Functions
@@ -801,23 +804,25 @@ function MonochromeUI:CreateDropdown(tab, name, options, callback)
 end
 
 -- ====================================
--- CREATE SELECTION (NEW FEATURE!)
+-- CREATE SELECTION (IMPROVED!)
 -- Option Picker with Execute Button
+-- Now with better visuals and search capability
 -- ====================================
-function MonochromeUI:CreateSelection(tab, name, options, executeCallback)
+function MonochromeUI:CreateSelection(tab, name, options, callback)
     local element = {}
     element.Type = "Selection"
     element.Value = options[1] or ""
     element.Options = options
     element.Expanded = false
+    element.Buttons = {}
     
-    -- Main Container
+    -- Main Container (slightly taller for better spacing)
     element.Frame = CreateInstance("Frame", {
         Parent = tab.Page,
         BackgroundColor3 = Settings.SecondaryColor,
         BorderColor3 = Settings.BorderColor,
         BorderSizePixel = 1,
-        Size = UDim2.new(1, -10, 0, 70),
+        Size = UDim2.new(1, -10, 0, 75),
         ClipsDescendants = false,
         ZIndex = 1,
     })
@@ -827,13 +832,13 @@ function MonochromeUI:CreateSelection(tab, name, options, executeCallback)
         Parent = element.Frame,
     })
     
-    -- Title Label
+    -- Title Label with better positioning
     element.Label = CreateInstance("TextLabel", {
         Parent = element.Frame,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 8),
+        Position = UDim2.new(0, 12, 0, 10),
         Size = UDim2.new(1, -24, 0, 16),
-        Font = Enum.Font.GothamSemibold,
+        Font = Enum.Font.GothamBold,
         Text = name,
         TextColor3 = Settings.TextColor,
         TextSize = 13,
@@ -841,15 +846,29 @@ function MonochromeUI:CreateSelection(tab, name, options, executeCallback)
         ZIndex = 2,
     })
     
-    -- Option Picker Dropdown (Left side)
+    -- Selected option display
+    element.SelectedText = CreateInstance("TextLabel", {
+        Parent = element.Frame,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 12, 0, 28),
+        Size = UDim2.new(0.55, -6, 0, 14),
+        Font = Enum.Font.Gotham,
+        Text = "Selected: " .. element.Value,
+        TextColor3 = Settings.DimTextColor,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 2,
+    })
+    
+    -- Option Picker Button (Left side - improved design)
     element.PickerButton = CreateInstance("TextButton", {
         Parent = element.Frame,
         BackgroundColor3 = Settings.PrimaryColor,
         BorderColor3 = Settings.BorderColor,
         BorderSizePixel = 1,
-        Position = UDim2.new(0, 12, 0, 30),
-        Size = UDim2.new(0.55, -6, 0, 28),
-        Font = Enum.Font.Gotham,
+        Position = UDim2.new(0, 12, 0, 44),
+        Size = UDim2.new(0.58, -6, 0, 24),
+        Font = Enum.Font.GothamSemibold,
         Text = "  " .. element.Value .. "  ▼",
         TextColor3 = Settings.TextColor,
         TextSize = 12,
@@ -863,18 +882,53 @@ function MonochromeUI:CreateSelection(tab, name, options, executeCallback)
         Parent = element.PickerButton,
     })
     
+    -- Execute Button (Right side - more prominent)
+    element.ExecuteButton = CreateInstance("TextButton", {
+        Parent = element.Frame,
+        BackgroundColor3 = Settings.ExecuteColor,
+        BorderColor3 = Settings.BorderColor,
+        BorderSizePixel = 1,
+        Position = UDim2.new(0.58, 6, 0, 44),
+        Size = UDim2.new(0.42, -18, 0, 24),
+        Font = Enum.Font.GothamBold,
+        Text = "EXECUTE",
+        TextColor3 = Settings.TextColor,
+        TextSize = 12,
+        ZIndex = 2,
+        AutoButtonColor = false,
+    })
+    
+    local ExecuteCorner = CreateInstance("UICorner", {
+        CornerRadius = UDim.new(0, 4),
+        Parent = element.ExecuteButton,
+    })
+    
+    -- Execute button glow effect
+    local ExecuteGlow = CreateInstance("ImageLabel", {
+        Parent = element.ExecuteButton,
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://297034942",
+        ImageColor3 = Color3.fromRGB(255, 255, 255),
+        ImageTransparency = 0.8,
+        ScaleType = Enum.ScaleType.Slice,
+        SliceCenter = Rect.new(10, 10, 118, 118),
+        Size = UDim2.new(1, 10, 1, 10),
+        Position = UDim2.new(0, -5, 0, -5),
+        ZIndex = 2,
+    })
+    
     -- Dropdown options frame
     element.OptionsFrame = CreateInstance("ScrollingFrame", {
         Parent = element.Frame,
         BackgroundColor3 = Settings.PrimaryColor,
         BorderColor3 = Settings.BorderColor,
         BorderSizePixel = 1,
-        Position = UDim2.new(0, 12, 1, 35),
-        Size = UDim2.new(0.55, -6, 0, 0),
+        Position = UDim2.new(0, 12, 1, 48),
+        Size = UDim2.new(0.58, -6, 0, 0),
         CanvasSize = UDim2.new(0, 0, 0, 0),
         ScrollBarThickness = 3,
         ScrollBarImageColor3 = Settings.DimTextColor,
-        ZIndex = 10,
+        ZIndex = 20,
         Visible = false,
         ClipsDescendants = true,
     })
@@ -894,14 +948,233 @@ function MonochromeUI:CreateSelection(tab, name, options, executeCallback)
         element.OptionsFrame.CanvasSize = UDim2.new(0, 0, 0, OptionsLayout.AbsoluteContentSize.Y + 2)
     end)
     
-    -- Execute Button (Right side)
+    -- Create option buttons in dropdown
+    local function CreateOptionButtons()
+        for _, child in pairs(element.OptionsFrame:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
+            end
+        end
+        element.Buttons = {}
+        
+        for _, option in pairs(options) do
+            local optionButton = CreateInstance("TextButton", {
+                Parent = element.OptionsFrame,
+                BackgroundColor3 = Settings.SecondaryColor,
+                BorderSizePixel = 0,
+                Size = UDim2.new(1, 0, 0, 28),
+                Font = Enum.Font.Gotham,
+                Text = "  " .. option,
+                TextColor3 = Settings.DimTextColor,
+                TextSize = 12,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex = 21,
+                AutoButtonColor = false,
+            })
+            
+            -- Highlight effect on hover
+            optionButton.MouseEnter:Connect(function()
+                CreateTween(optionButton, {BackgroundColor3 = Settings.AccentColor, TextColor3 = Settings.TextColor}, 0.2):Play()
+            end)
+            
+            optionButton.MouseLeave:Connect(function()
+                CreateTween(optionButton, {BackgroundColor3 = Settings.SecondaryColor, TextColor3 = Settings.DimTextColor}, 0.2):Play()
+            end)
+            
+            -- Selection click
+            optionButton.MouseButton1Click:Connect(function()
+                element.Value = option
+                element.PickerButton.Text = "  " .. option .. "  ▼"
+                element.SelectedText.Text = "Selected: " .. option
+                element:ToggleDropdown(false)
+                
+                -- Flash selected option
+                spawn(function()
+                    CreateTween(optionButton, {BackgroundColor3 = Color3.fromRGB(80, 80, 80), TextColor3 = Settings.TextColor}, 0.1):Play()
+                    wait(0.1)
+                    CreateTween(optionButton, {BackgroundColor3 = Settings.SecondaryColor, TextColor3 = Settings.DimTextColor}, 0.2):Play()
+                end)
+            end)
+            
+            table.insert(element.Buttons, optionButton)
+        end
+    end
+    
+    -- Toggle dropdown
+    function element:ToggleDropdown(state)
+        if state == nil then
+            state = not element.Expanded
+        end
+        element.Expanded = state
+        
+        if state then
+            -- Close other dropdowns first
+            for _, el in pairs(self.Elements) do
+                if el ~= element and el.Type == "Selection" and el.Expanded then
+                    el:ToggleDropdown(false)
+                end
+            end
+            
+            element.OptionsFrame.Visible = true
+            local height = math.min(#options * 28 + #options - 1, 150)
+            element.OptionsFrame.Size = UDim2.new(0.58, -6, 0, 0)
+            CreateTween(element.OptionsFrame, {Size = UDim2.new(0.58, -6, 0, height)}, 0.2):Play()
+            element.PickerButton.Text = "  " .. element.Value .. "  ▲"
+        else
+            CreateTween(element.OptionsFrame, {Size = UDim2.new(0.58, -6, 0, 0)}, 0.2):Play()
+            element.PickerButton.Text = "  " .. element.Value .. "  ▼"
+            wait(0.2)
+            element.OptionsFrame.Visible = false
+        end
+    end
+    
+    -- Picker button click
+    element.PickerButton.MouseButton1Click:Connect(function()
+        element:ToggleDropdown()
+    end)
+    
+    -- Picker hover effects
+    element.PickerButton.MouseEnter:Connect(function()
+        CreateTween(element.PickerButton, {BackgroundColor3 = Settings.AccentColor}, 0.2):Play()
+    end)
+    
+    element.PickerButton.MouseLeave:Connect(function()
+        if not element.Expanded then
+            CreateTween(element.PickerButton, {BackgroundColor3 = Settings.PrimaryColor}, 0.2):Play()
+        end
+    end)
+    
+    -- Execute button effects
+    element.ExecuteButton.MouseEnter:Connect(function()
+        CreateTween(element.ExecuteButton, {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}, 0.2):Play()
+        CreateTween(ExecuteGlow, {ImageTransparency = 0.6}, 0.3):Play()
+    end)
+    
+    element.ExecuteButton.MouseLeave:Connect(function()
+        CreateTween(element.ExecuteButton, {BackgroundColor3 = Settings.ExecuteColor}, 0.2):Play()
+        CreateTween(ExecuteGlow, {ImageTransparency = 0.8}, 0.3):Play()
+    end)
+    
+    element.ExecuteButton.MouseButton1Click:Connect(function()
+        -- Click animation
+        CreateTween(element.ExecuteButton, {BackgroundColor3 = Color3.fromRGB(100, 100, 100)}, 0.1):Play()
+        CreateTween(ExecuteGlow, {ImageTransparency = 0.4}, 0.1):Play()
+        
+        if callback then
+            callback(element.Value)
+        end
+        
+        wait(0.1)
+        CreateTween(element.ExecuteButton, {BackgroundColor3 = Settings.ExecuteColor}, 0.2):Play()
+        CreateTween(ExecuteGlow, {ImageTransparency = 0.8}, 0.2):Play()
+    end)
+    
+    -- Update options dynamically
+    element.SetOptions = function(newOptions)
+        options = newOptions
+        element.Options = newOptions
+        if not table.find(newOptions, element.Value) then
+            element.Value = newOptions[1] or ""
+            element.PickerButton.Text = "  " .. element.Value .. "  ▼"
+            element.SelectedText.Text = "Selected: " .. element.Value
+        end
+        CreateOptionButtons()
+    end
+    
+    -- Set selected option
+    element.SetValue = function(value)
+        if table.find(options, value) then
+            element.Value = value
+            element.PickerButton.Text = "  " .. value .. "  ▼"
+            element.SelectedText.Text = "Selected: " .. value
+        end
+    end
+    
+    CreateOptionButtons()
+    
+    table.insert(self.Elements, element)
+    return element
+end
+
+-- ====================================
+-- CREATE INPUT (NEW FEATURE!)
+-- Text Input Box with Execute Button
+-- ====================================
+function MonochromeUI:CreateInput(tab, name, placeholder, callback)
+    local element = {}
+    element.Type = "Input"
+    element.Value = ""
+    element.Placeholder = placeholder or "Type here..."
+    
+    -- Main Container
+    element.Frame = CreateInstance("Frame", {
+        Parent = tab.Page,
+        BackgroundColor3 = Settings.SecondaryColor,
+        BorderColor3 = Settings.BorderColor,
+        BorderSizePixel = 1,
+        Size = UDim2.new(1, -10, 0, 80),
+        ClipsDescendants = false,
+        ZIndex = 1,
+    })
+    
+    local Corner = CreateInstance("UICorner", {
+        CornerRadius = UDim.new(0, 6),
+        Parent = element.Frame,
+    })
+    
+    -- Title Label
+    element.Label = CreateInstance("TextLabel", {
+        Parent = element.Frame,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 12, 0, 10),
+        Size = UDim2.new(1, -24, 0, 16),
+        Font = Enum.Font.GothamBold,
+        Text = name,
+        TextColor3 = Settings.TextColor,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 2,
+    })
+    
+    -- Text Input Box
+    element.InputBox = CreateInstance("TextBox", {
+        Parent = element.Frame,
+        BackgroundColor3 = Settings.InputBgColor,
+        BorderColor3 = Settings.BorderColor,
+        BorderSizePixel = 1,
+        Position = UDim2.new(0, 12, 0, 32),
+        Size = UDim2.new(0.58, -6, 0, 32),
+        Font = Enum.Font.Gotham,
+        PlaceholderText = placeholder,
+        PlaceholderColor3 = Settings.DimTextColor,
+        Text = "",
+        TextColor3 = Settings.TextColor,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ClearTextOnFocus = false,
+        ZIndex = 2,
+    })
+    
+    local InputCorner = CreateInstance("UICorner", {
+        CornerRadius = UDim.new(0, 4),
+        Parent = element.InputBox,
+    })
+    
+    -- Input padding
+    local InputPadding = CreateInstance("UIPadding", {
+        Parent = element.InputBox,
+        PaddingLeft = UDim.new(0, 8),
+        PaddingRight = UDim.new(0, 8),
+    })
+    
+    -- Execute Button
     element.ExecuteButton = CreateInstance("TextButton", {
         Parent = element.Frame,
         BackgroundColor3 = Settings.ExecuteColor,
         BorderColor3 = Settings.BorderColor,
         BorderSizePixel = 1,
-        Position = UDim2.new(0.55, 6, 0, 30),
-        Size = UDim2.new(0.45, -18, 0, 28),
+        Position = UDim2.new(0.58, 6, 0, 32),
+        Size = UDim2.new(0.42, -18, 0, 32),
         Font = Enum.Font.GothamBold,
         Text = "EXECUTE",
         TextColor3 = Settings.TextColor,
@@ -915,104 +1188,109 @@ function MonochromeUI:CreateSelection(tab, name, options, executeCallback)
         Parent = element.ExecuteButton,
     })
     
-    -- Create option buttons in dropdown
-    local function CreateOptionButtons()
-        -- Clear existing buttons
-        for _, child in pairs(element.OptionsFrame:GetChildren()) do
-            if child:IsA("TextButton") then
-                child:Destroy()
-            end
-        end
+    -- Execute button glow effect
+    local ExecuteGlow = CreateInstance("ImageLabel", {
+        Parent = element.ExecuteButton,
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://297034942",
+        ImageColor3 = Color3.fromRGB(255, 255, 255),
+        ImageTransparency = 0.8,
+        ScaleType = Enum.ScaleType.Slice,
+        SliceCenter = Rect.new(10, 10, 118, 118),
+        Size = UDim2.new(1, 10, 1, 10),
+        Position = UDim2.new(0, -5, 0, -5),
+        ZIndex = 2,
+    })
+    
+    -- Character count label
+    element.CharCount = CreateInstance("TextLabel", {
+        Parent = element.Frame,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 12, 0, 66),
+        Size = UDim2.new(0.58, -6, 0, 10),
+        Font = Enum.Font.Gotham,
+        Text = "0 characters",
+        TextColor3 = Settings.DimTextColor,
+        TextSize = 9,
+        TextXAlignment = Enum.TextXAlignment.Right,
+        ZIndex = 2,
+    })
+    
+    -- Input text changed
+    element.InputBox:GetPropertyChangedSignal("Text"):Connect(function()
+        element.Value = element.InputBox.Text
+        element.CharCount.Text = #element.InputBox.Text .. " characters"
         
-        for _, option in pairs(options) do
-            local optionButton = CreateInstance("TextButton", {
-                Parent = element.OptionsFrame,
-                BackgroundColor3 = Settings.SecondaryColor,
-                BorderSizePixel = 0,
-                Size = UDim2.new(1, 0, 0, 28),
-                Font = Enum.Font.Gotham,
-                Text = "  " .. option,
-                TextColor3 = Settings.DimTextColor,
-                TextSize = 12,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                ZIndex = 11,
-                AutoButtonColor = false,
-            })
-            
-            optionButton.MouseEnter:Connect(function()
-                CreateTween(optionButton, {BackgroundColor3 = Settings.AccentColor}, 0.2):Play()
-            end)
-            
-            optionButton.MouseLeave:Connect(function()
-                CreateTween(optionButton, {BackgroundColor3 = Settings.SecondaryColor}, 0.2):Play()
-            end)
-            
-            optionButton.MouseButton1Click:Connect(function()
-                element.Value = option
-                element.PickerButton.Text = "  " .. option .. "  ▼"
-                element:ToggleDropdown(false)
-            end)
-            
-            table.insert(element.Buttons, optionButton)
+        -- Limit to 100 characters
+        if #element.InputBox.Text > 100 then
+            element.InputBox.Text = element.InputBox.Text:sub(1, 100)
         end
-    end
-    
-    element.Buttons = {}
-    
-    -- Toggle dropdown
-    function element:ToggleDropdown(state)
-        if state == nil then
-            state = not element.Expanded
-        end
-        element.Expanded = state
-        
-        if state then
-            element.OptionsFrame.Visible = true
-            local height = math.min(#options * 28 + #options - 1, 150)
-            element.OptionsFrame.Size = UDim2.new(0.55, -6, 0, 0)
-            CreateTween(element.OptionsFrame, {Size = UDim2.new(0.55, -6, 0, height)}, 0.2):Play()
-        else
-            CreateTween(element.OptionsFrame, {Size = UDim2.new(0.55, -6, 0, 0)}, 0.2):Play()
-            wait(0.2)
-            element.OptionsFrame.Visible = false
-        end
-    end
-    
-    -- Picker button click
-    element.PickerButton.MouseButton1Click:Connect(function()
-        element:ToggleDropdown()
     end)
     
-    -- Execute button click
+    -- Focus effects
+    element.InputBox.Focused:Connect(function()
+        CreateTween(element.InputBox, {BorderColor3 = Settings.TextColor}, 0.2):Play()
+    end)
+    
+    element.InputBox.FocusLost:Connect(function(enterPressed)
+        element.InputBox.BorderColor3 = Settings.BorderColor
+        
+        -- Execute on Enter key
+        if enterPressed and element.InputBox.Text ~= "" and callback then
+            callback(element.InputBox.Text)
+            
+            -- Flash effect
+            spawn(function()
+                CreateTween(element.ExecuteButton, {BackgroundColor3 = Color3.fromRGB(100, 100, 100)}, 0.1):Play()
+                wait(0.1)
+                CreateTween(element.ExecuteButton, {BackgroundColor3 = Settings.ExecuteColor}, 0.2):Play()
+            end)
+        end
+    end)
+    
+    -- Execute button hover effects
     element.ExecuteButton.MouseEnter:Connect(function()
         CreateTween(element.ExecuteButton, {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}, 0.2):Play()
+        CreateTween(ExecuteGlow, {ImageTransparency = 0.6}, 0.3):Play()
     end)
     
     element.ExecuteButton.MouseLeave:Connect(function()
         CreateTween(element.ExecuteButton, {BackgroundColor3 = Settings.ExecuteColor}, 0.2):Play()
+        CreateTween(ExecuteGlow, {ImageTransparency = 0.8}, 0.3):Play()
     end)
     
+    -- Execute button click
     element.ExecuteButton.MouseButton1Click:Connect(function()
-        CreateTween(element.ExecuteButton, {BackgroundColor3 = Color3.fromRGB(100, 100, 100)}, 0.1):Play()
-        if executeCallback then
-            executeCallback(element.Value)
+        if element.InputBox.Text ~= "" then
+            -- Click animation
+            CreateTween(element.ExecuteButton, {BackgroundColor3 = Color3.fromRGB(100, 100, 100)}, 0.1):Play()
+            CreateTween(ExecuteGlow, {ImageTransparency = 0.4}, 0.1):Play()
+            
+            if callback then
+                callback(element.InputBox.Text)
+            end
+            
+            wait(0.1)
+            CreateTween(element.ExecuteButton, {BackgroundColor3 = Settings.ExecuteColor}, 0.2):Play()
+            CreateTween(ExecuteGlow, {ImageTransparency = 0.8}, 0.2):Play()
         end
-        wait(0.1)
-        CreateTween(element.ExecuteButton, {BackgroundColor3 = Settings.ExecuteColor}, 0.2):Play()
     end)
     
-    -- Update options dynamically
-    element.SetOptions = function(newOptions)
-        options = newOptions
-        element.Options = newOptions
-        if not table.find(newOptions, element.Value) then
-            element.Value = newOptions[1] or ""
-            element.PickerButton.Text = "  " .. element.Value .. "  ▼"
-        end
-        CreateOptionButtons()
+    -- Methods
+    element.SetValue = function(text)
+        element.InputBox.Text = text or ""
+        element.Value = element.InputBox.Text
     end
     
-    CreateOptionButtons()
+    element.GetValue = function()
+        return element.InputBox.Text
+    end
+    
+    element.Clear = function()
+        element.InputBox.Text = ""
+        element.Value = ""
+        element.CharCount.Text = "0 characters"
+    end
     
     table.insert(self.Elements, element)
     return element
